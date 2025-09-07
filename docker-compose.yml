@@ -1,0 +1,15 @@
+version: '3.8'
+services:
+  postgres:
+    image: postgres:16
+    container_name: some-postgres2
+    environment:
+      POSTGRES_DB: crud-user
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_nest_data:/var/lib/postgresql/data
+volumes:
+  pg_nest_data:

@@ -1,5 +1,11 @@
-import { Column, Entity, PrimaryGeneratedColumn } from "typeorm";
-
+import {
+  BeforeInsert,
+  BeforeUpdate,
+  Column,
+  Entity,
+  PrimaryGeneratedColumn,
+} from 'typeorm';
+import * as bcrypt from 'bcryptjs';
 @Entity()
 export class User {
   @PrimaryGeneratedColumn()
@@ -17,7 +23,7 @@ export class User {
   @Column({ default: true })
   isActive: boolean;
 
-  @Column({nullable})
+  @Column({ nullable: true })
   avatar: string;
 
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
@@ -29,4 +35,13 @@ export class User {
     onUpdate: 'CURRENT_TIMESTAMP',
   })
   updatedAt: Date;
+
+  @BeforeInsert()
+  @BeforeUpdate()
+  async hashPassword() {
+    if (this.password && !this.password.startsWith('$2b$')) {
+      const salt = await bcrypt.genSalt(10);
+      this.password = await bcrypt.hash(this.password, salt);
+    }
+  }
 }

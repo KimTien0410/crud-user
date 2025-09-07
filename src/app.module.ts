@@ -6,12 +6,13 @@ import { ConfigModule } from "@nestjs/config";
 import { DataSource } from "typeorm";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { CloudinaryModule } from "./cloudinary/cloudinary.module";
-
+import { ScheduleModule } from "@nestjs/schedule";
 @Module({
   imports: [
     UserModule,
     CloudinaryModule,
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     TypeOrmModule.forRoot({
       type: "postgres",
       host: process.env.DATABASE_HOST,

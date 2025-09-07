@@ -5,7 +5,7 @@ import { UpdateUserDto } from "./dto/update-user.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { User } from "./entities/user.entity";
 import { Repository, DataSource } from "typeorm";
-
+import { Cron } from "@nestjs/schedule";
 @Injectable()
 export class UserService {
   constructor(
@@ -22,56 +22,105 @@ export class UserService {
   findOne(id: number): Promise<User | null> {
     return this.userRepository.findOneBy({ id });
   }
-
   async create(
     createUserDto: CreateUserDto,
     file?: Express.Multer.File,
   ): Promise<User> {
-    const queryRunner = this.dataSource.createQueryRunner();
     let uploadedPublicId: string | undefined;
 
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
     try {
-      let avatarUrl: string | undefined;
+      return await this.dataSource.transaction(async (manager) => {
+        console.log("🚀 Starting transaction...");
 
-      if (file) {
-        try {
-          const uploadResult = await this.cloudinaryService.uploadFile(file);
-          avatarUrl = uploadResult.secure_url;
-          uploadedPublicId = uploadResult.public_id;
-        } catch (err) {
-          throw new BadRequestException(
-            `Upload avatar failed: ${(err as Error).message}`,
-          );
+        let avatarUrl: string | undefined;
+
+        if (file) {
+          try {
+            const uploadResult = await this.cloudinaryService.uploadFile(file);
+            avatarUrl = uploadResult.secure_url;
+            uploadedPublicId = uploadResult.public_id;
+          } catch (err) {
+            throw new BadRequestException(
+              `Upload avatar failed: ${(err as Error).message}`,
+            );
+          }
         }
-      }
 
-      const user = queryRunner.manager.create(User, {
-        ...createUserDto,
-        avatar: avatarUrl,
-        isActive: true,
+        const user = manager.create(User, {
+          ...createUserDto,
+          avatar: avatarUrl,
+          isActive: true,
+        });
+
+        const savedUser = await manager.save(user);
+
+        // Test rollback - bất kỳ lỗi nào ở đây đều tự động rollback
+        throw new Error("Test rollback - This should rollback the transaction");
+
+        return savedUser;
       });
-
-      const savedUser = await queryRunner.manager.save(user);
-
-      await queryRunner.commitTransaction();
-      return savedUser;
     } catch (error) {
-      await queryRunner.rollbackTransaction();
-      // rollback file Cloudinary nếu đã upload
+      // Cleanup cloudinary nếu cần
       if (uploadedPublicId) {
         await this.cloudinaryService.deleteFile(uploadedPublicId);
       }
-
-      throw error instanceof BadRequestException
-        ? error
-        : new BadRequestException("Create user failed: " + error);
-    } finally {
-      await queryRunner.release();
+      throw error;
     }
   }
+  // async create(
+  //   createUserDto: CreateUserDto,
+  //   file?: Express.Multer.File,
+  // ): Promise<User> {
+  //   const queryRunner = this.dataSource.createQueryRunner();
+  //   let uploadedPublicId: string | undefined;
+
+  //   await queryRunner.connect();
+  //   await queryRunner.startTransaction();
+
+  //   try {
+  //     let avatarUrl: string | undefined;
+
+  //     if (file) {
+  //       try {
+  //         const uploadResult = await this.cloudinaryService.uploadFile(file);
+  //         avatarUrl = uploadResult.secure_url;
+  //         uploadedPublicId = uploadResult.public_id;
+  //       } catch (err) {
+  //         throw new BadRequestException(
+  //           `Upload avatar failed: ${(err as Error).message}`,
+  //         );
+  //       }
+  //     }
+
+  //     const user = queryRunner.manager.create(User, {
+  //       ...createUserDto,
+  //       avatar: avatarUrl,
+  //       isActive: true,
+  //     });
+
+  //     const savedUser = await queryRunner.manager.save(user);
+  //     await queryRunner.commitTransaction();
+  //     // test transaction rollback
+  //     let testError = 1;
+  //     testError = 5 / 0;
+  //     // if (testError === 5) {
+  //     //   throw new Error("Test transaction rollback");
+  //     // }
+  //     return savedUser;
+  //   } catch (error) {
+  //     await queryRunner.rollbackTransaction();
+  //     // rollback file Cloudinary nếu đã upload
+  //     if (uploadedPublicId) {
+  //       await this.cloudinaryService.deleteFile(uploadedPublicId);
+  //     }
+
+  //     throw error instanceof BadRequestException
+  //       ? error
+  //       : new BadRequestException("Create user failed: ");
+  //   } finally {
+  //     await queryRunner.release();
+  //   }
+  // }
 
   async update(
     id: number,
@@ -119,5 +168,10 @@ export class UserService {
 
   async remove(id: number): Promise<void> {
     await this.userRepository.delete(id);
+  }
+
+  @Cron("45 * * * * *")
+  async removeUserIsActiveFalse(): Promise<void> {
+    await this.userRepository.delete({ isActive: false });
   }
 }

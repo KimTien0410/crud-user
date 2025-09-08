@@ -3,9 +3,13 @@ import {
   BeforeUpdate,
   Column,
   Entity,
+  JoinTable,
+  ManyToMany,
   PrimaryGeneratedColumn,
 } from "typeorm";
 import * as bcrypt from "bcryptjs";
+import { Role } from "../../role/entities/role.entity";
+
 @Entity()
 export class User {
   @PrimaryGeneratedColumn()
@@ -35,6 +39,13 @@ export class User {
     onUpdate: "CURRENT_TIMESTAMP",
   })
   updatedAt: Date;
+  @ManyToMany(() => Role)
+  @JoinTable({
+    name: "user_roles", // custom join table name
+    joinColumn: { name: "user_id", referencedColumnName: "id" },
+    inverseJoinColumn: { name: "role_id", referencedColumnName: "id" },
+  })
+  roles: Role[];
 
   @BeforeInsert()
   @BeforeUpdate()

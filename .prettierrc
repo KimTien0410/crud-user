@@ -1,14 +1,9 @@
 {
   "prettier/prettier": [
     "error",
-    {},
     {
-      "usePrettierrc": false
-    },
-    {
-      "fileInfoOptions": {
-        "withNodeModules": true
-      }
+      "singleQuote": true,
+      "parser": "flow"
     }
   ]
 }

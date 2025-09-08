@@ -1,16 +1,25 @@
 import { Module } from "@nestjs/common";
 import { AppController } from "./app.controller";
 import { AppService } from "./app.service";
-import { UserModule } from "./user/user.module";
+
 import { ConfigModule } from "@nestjs/config";
 import { DataSource } from "typeorm";
 import { TypeOrmModule } from "@nestjs/typeorm";
-import { CloudinaryModule } from "./cloudinary/cloudinary.module";
+
 import { ScheduleModule } from "@nestjs/schedule";
+import { UserModule } from "./modules/user/user.module";
+
+import { AuthModule } from "./modules/auth/auth.module";
+import { RoleModule } from "./modules/role/role.module";
+import { PermissionModule } from "./modules/permission/permission.module";
+import { BullModule } from "@nestjs/bull";
+import { CloudinaryModule } from "./shared/cloudinary/cloudinary.module";
+import { EmailModule } from "./shared/email/email.module";
+import { IsUniqueConstraint } from "./common/validation/is-unique.constraint";
+import { ValidationModule } from "./common/validation/validation.module";
+
 @Module({
   imports: [
-    UserModule,
-    CloudinaryModule,
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
     TypeOrmModule.forRoot({
@@ -23,6 +32,19 @@ import { ScheduleModule } from "@nestjs/schedule";
       entities: [__dirname + "/**/*.entity{.ts,.js}"],
       synchronize: true,
     }),
+    BullModule.forRoot({
+      redis: {
+        host: "localhost",
+        port: 6379,
+      },
+    }),
+    ValidationModule,
+    UserModule,
+    CloudinaryModule,
+    EmailModule,
+    AuthModule,
+    RoleModule,
+    PermissionModule,
   ],
   controllers: [AppController],
   providers: [AppService],

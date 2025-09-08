@@ -1,11 +1,16 @@
-import { CloudinaryService } from "./../cloudinary/cloudinary.service";
-import { BadRequestException, Injectable } from "@nestjs/common";
+
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from "@nestjs/common";
 import { CreateUserDto } from "./dto/create-user.dto";
 import { UpdateUserDto } from "./dto/update-user.dto";
 import { InjectRepository } from "@nestjs/typeorm";
 import { User } from "./entities/user.entity";
 import { Repository, DataSource } from "typeorm";
 import { Cron } from "@nestjs/schedule";
+import { CloudinaryService } from "../../shared/cloudinary/cloudinary.service";
 @Injectable()
 export class UserService {
   constructor(
@@ -21,6 +26,9 @@ export class UserService {
 
   findOne(id: number): Promise<User | null> {
     return this.userRepository.findOneBy({ id });
+  }
+  findByEmail(email: string): Promise<User | null> {
+    return this.userRepository.findOneBy({ email });
   }
   async create(
     createUserDto: CreateUserDto,
@@ -55,7 +63,7 @@ export class UserService {
         const savedUser = await manager.save(user);
 
         // Test rollback - bất kỳ lỗi nào ở đây đều tự động rollback
-        throw new Error("Test rollback - This should rollback the transaction");
+        // throw new Error("Test rollback - This should rollback the transaction");
 
         return savedUser;
       });
@@ -127,6 +135,12 @@ export class UserService {
     updateUserDto: UpdateUserDto,
     file?: Express.Multer.File,
   ): Promise<User | null> {
+    // Lấy dữ liệu trước khi update
+    const before = await this.userRepository.findOneBy({ id });
+    if (!before) {
+      throw new NotFoundException(`User ${id} not found`);
+    }
+
     const user = await this.userRepository.findOneBy({ id });
     if (!user) {
       return null;
@@ -163,7 +177,16 @@ export class UserService {
       ...updateUserDto,
       avatar,
     });
-    return this.userRepository.save(updated);
+
+    // Lấy dữ liệu sau khi update
+    const after = await this.userRepository.findOneBy({ id });
+
+    // Log thay đổi
+    console.log("--- User Update Log ---");
+    console.log("Before:", before);
+    console.log("After:", after);
+    return after;
+    // return this.userRepository.save(updated);
   }
 
   async remove(id: number): Promise<void> {
@@ -174,4 +197,10 @@ export class UserService {
   async removeUserIsActiveFalse(): Promise<void> {
     await this.userRepository.delete({ isActive: false });
   }
+  // @Cron("*/10 * * * * *") // mỗi 10s
+  // async handleJob() {
+  //   console.log("Start job", new Date());
+  //   await new Promise((resolve) => setTimeout(resolve, 15000)); // giả lập job chạy 15s
+  //   console.log("End job", new Date());
+  // }
 }
